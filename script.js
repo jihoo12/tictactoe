@@ -4,46 +4,51 @@ let currentPlayer = 1; // 1 = Human (Red), 2 = Bot (Blue)
 let gameOver = false;
 let isBotThinking = false;
 let boardState = new Array(27).fill(0);
+let difficulty = 'hard'; // 'easy' | 'medium' | 'hard'
 
 const P1_COLOR = 0xff3b30;
 const P2_COLOR = 0x007aff;
+const WIN_COLOR = 0xffd700;
 const EMPTY_COLOR = 0xffffff;
 const SPACING = 2.2;
 
-const turnDisplay = document.getElementById('turn-display');
+const turnDisplay   = document.getElementById('turn-display');
 const statusDisplay = document.getElementById('status-display');
-const winningLines = [];
+const winningLines  = [];
+
+// ─────────────────────────────────────────────
+//  Difficulty settings
+//  easy   → random moves
+//  medium → minimax depth 2
+//  hard   → minimax depth 4 + α/β pruning
+// ─────────────────────────────────────────────
+const DEPTH_MAP = { easy: 0, medium: 2, hard: 4 };
 
 // ─────────────────────────────────────────────
 //  Winning-line generator
 // ─────────────────────────────────────────────
 function generateWinningLines() {
-    const getIndex = (x, y, z) => x * 9 + y * 3 + z;
+    const idx = (x, y, z) => x * 9 + y * 3 + z;
 
     for (let i = 0; i < 3; i++) {
         for (let j = 0; j < 3; j++) {
-            // Rows along each axis
-            winningLines.push([getIndex(i, j, 0), getIndex(i, j, 1), getIndex(i, j, 2)]);
-            winningLines.push([getIndex(i, 0, j), getIndex(i, 1, j), getIndex(i, 2, j)]);
-            winningLines.push([getIndex(0, i, j), getIndex(1, i, j), getIndex(2, i, j)]);
+            winningLines.push([idx(i, j, 0), idx(i, j, 1), idx(i, j, 2)]);
+            winningLines.push([idx(i, 0, j), idx(i, 1, j), idx(i, 2, j)]);
+            winningLines.push([idx(0, i, j), idx(1, i, j), idx(2, i, j)]);
         }
     }
-
     for (let i = 0; i < 3; i++) {
-        // Face diagonals
-        winningLines.push([getIndex(0, 0, i), getIndex(1, 1, i), getIndex(2, 2, i)]);
-        winningLines.push([getIndex(0, 2, i), getIndex(1, 1, i), getIndex(2, 0, i)]);
-        winningLines.push([getIndex(0, i, 0), getIndex(1, i, 1), getIndex(2, i, 2)]);
-        winningLines.push([getIndex(0, i, 2), getIndex(1, i, 1), getIndex(2, i, 0)]);
-        winningLines.push([getIndex(i, 0, 0), getIndex(i, 1, 1), getIndex(i, 2, 2)]);
-        winningLines.push([getIndex(i, 0, 2), getIndex(i, 1, 1), getIndex(i, 2, 0)]);
+        winningLines.push([idx(0, 0, i), idx(1, 1, i), idx(2, 2, i)]);
+        winningLines.push([idx(0, 2, i), idx(1, 1, i), idx(2, 0, i)]);
+        winningLines.push([idx(0, i, 0), idx(1, i, 1), idx(2, i, 2)]);
+        winningLines.push([idx(0, i, 2), idx(1, i, 1), idx(2, i, 0)]);
+        winningLines.push([idx(i, 0, 0), idx(i, 1, 1), idx(i, 2, 2)]);
+        winningLines.push([idx(i, 0, 2), idx(i, 1, 1), idx(i, 2, 0)]);
     }
-
-    // Space diagonals
-    winningLines.push([getIndex(0, 0, 0), getIndex(1, 1, 1), getIndex(2, 2, 2)]);
-    winningLines.push([getIndex(0, 0, 2), getIndex(1, 1, 1), getIndex(2, 2, 0)]);
-    winningLines.push([getIndex(0, 2, 0), getIndex(1, 1, 1), getIndex(2, 0, 2)]);
-    winningLines.push([getIndex(0, 2, 2), getIndex(1, 1, 1), getIndex(2, 0, 0)]);
+    winningLines.push([idx(0,0,0), idx(1,1,1), idx(2,2,2)]);
+    winningLines.push([idx(0,0,2), idx(1,1,1), idx(2,2,0)]);
+    winningLines.push([idx(0,2,0), idx(1,1,1), idx(2,0,2)]);
+    winningLines.push([idx(0,2,2), idx(1,1,1), idx(2,0,0)]);
 }
 
 // ─────────────────────────────────────────────
@@ -66,9 +71,7 @@ function init() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
     dirLight.position.set(10, 20, 15);
     scene.add(dirLight);
@@ -86,36 +89,28 @@ function init() {
                 });
                 const mesh = new THREE.Mesh(sphereGeom, mat);
                 mesh.position.set((x - 1) * SPACING, (y - 1) * SPACING, (z - 1) * SPACING);
-
-                const flatIndex = x * 9 + y * 3 + z;
-                mesh.userData = { index: flatIndex };
-
+                mesh.userData = { index: x * 9 + y * 3 + z };
                 scene.add(mesh);
                 gridSlots.push(mesh);
             }
         }
     }
 
-    // Pointer / click handler
     const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
+    const mouse     = new THREE.Vector2();
 
     window.addEventListener('pointerdown', (e) => {
         if (gameOver || currentPlayer === 2 || isBotThinking) return;
-        if (e.target.tagName === 'BUTTON') return;
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return;
 
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
         raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(gridSlots);
+        const hits = raycaster.intersectObjects(gridSlots);
 
-        if (intersects.length > 0) {
-            const hitMesh = intersects[0].object;
-            const idx = hitMesh.userData.index;
-            if (boardState[idx] === 0) {
-                makeMove(idx);
-            }
+        if (hits.length > 0) {
+            const idx = hits[0].object.userData.index;
+            if (boardState[idx] === 0) makeMove(idx);
         }
     });
 
@@ -129,47 +124,63 @@ function init() {
 function makeMove(index) {
     boardState[index] = currentPlayer;
     const mesh = gridSlots[index];
-
     mesh.material.opacity = 1.0;
     mesh.material.color.setHex(currentPlayer === 1 ? P1_COLOR : P2_COLOR);
     mesh.scale.set(1.4, 1.4, 1.4);
 
-    if (checkWin(boardState, currentPlayer)) {
+    const winLine = getWinningLine(boardState, currentPlayer);
+    if (winLine) {
         gameOver = true;
+        highlightWinningLine(winLine);
         if (currentPlayer === 1) {
-            turnDisplay.innerText = "You Win! 🎉";
+            turnDisplay.innerText  = '🎉 You Win!';
             turnDisplay.style.color = '#ff3b30';
         } else {
-            turnDisplay.innerText = "Bot Wins! 🤖";
+            turnDisplay.innerText  = '🤖 Bot Wins!';
             turnDisplay.style.color = '#007aff';
         }
-        statusDisplay.innerText = "Click Reset Game to play again.";
+        statusDisplay.innerText = 'Click Reset Game to play again.';
         return;
     }
 
     if (!boardState.includes(0)) {
         gameOver = true;
-        turnDisplay.innerText = "It's a Draw! 🤝";
-        statusDisplay.innerText = "Click Reset Game to play again.";
+        turnDisplay.innerText  = "It's a Draw! 🤝";
+        turnDisplay.style.color = 'white';
+        statusDisplay.innerText = 'Click Reset Game to play again.';
         return;
     }
 
-    // Switch turns
     if (currentPlayer === 1) {
         currentPlayer = 2;
-        turnDisplay.innerText = "Bot is thinking... 🤖";
+        const label = difficulty === 'easy'   ? 'Easy'
+                    : difficulty === 'medium' ? 'Medium'
+                    : 'Hard';
+        turnDisplay.innerText  = `🤖 Bot thinking… [${label}]`;
         turnDisplay.style.color = '#007aff';
         isBotThinking = true;
-        setTimeout(botTurn, 600);
+        setTimeout(botTurn, 400);
     } else {
         currentPlayer = 1;
-        turnDisplay.innerText = "Your Turn (Red)";
+        turnDisplay.innerText  = 'Your Turn (Red)';
         turnDisplay.style.color = 'white';
     }
 }
 
 // ─────────────────────────────────────────────
-//  AI Bot
+//  Highlight winning spheres
+// ─────────────────────────────────────────────
+function highlightWinningLine(line) {
+    line.forEach(i => {
+        gridSlots[i].material.color.setHex(WIN_COLOR);
+        gridSlots[i].material.emissive = new THREE.Color(0xffd700);
+        gridSlots[i].material.emissiveIntensity = 0.5;
+        gridSlots[i].scale.set(1.6, 1.6, 1.6);
+    });
+}
+
+// ─────────────────────────────────────────────
+//  Bot dispatcher
 // ─────────────────────────────────────────────
 function botTurn() {
     if (gameOver) return;
@@ -177,37 +188,154 @@ function botTurn() {
 
     let targetIndex = -1;
 
-    // 1. Win immediately
-    targetIndex = findWinningMove(2);
-
-    // 2. Block human win
-    if (targetIndex === -1) targetIndex = findWinningMove(1);
-
-    // 3. Take center
-    if (targetIndex === -1 && boardState[13] === 0) targetIndex = 13;
-
-    // 4. Random fallback
-    if (targetIndex === -1) {
-        const available = boardState.reduce((acc, val, idx) => {
-            if (val === 0) acc.push(idx);
-            return acc;
-        }, []);
-        if (available.length > 0) {
-            targetIndex = available[Math.floor(Math.random() * available.length)];
-        }
+    if (difficulty === 'easy') {
+        // Pure random
+        const avail = emptyIndices(boardState);
+        if (avail.length) targetIndex = avail[Math.floor(Math.random() * avail.length)];
+    } else {
+        const depth = DEPTH_MAP[difficulty];
+        targetIndex = minimaxRoot(boardState, depth);
     }
 
     if (targetIndex !== -1) makeMove(targetIndex);
 }
 
-function findWinningMove(player) {
-    for (let i = 0; i < boardState.length; i++) {
-        if (boardState[i] === 0) {
-            boardState[i] = player;
-            const isWin = checkWin(boardState, player);
-            boardState[i] = 0;
-            if (isWin) return i;
+// ─────────────────────────────────────────────
+//  Minimax with Alpha-Beta Pruning
+// ─────────────────────────────────────────────
+
+/**
+ * Returns the best move index for the Bot (player 2).
+ */
+function minimaxRoot(state, maxDepth) {
+    // Always handle instant-win / instant-block at the root (speed + correctness)
+    const winNow   = findInstantMove(state, 2);
+    if (winNow   !== -1) return winNow;
+    const blockNow = findInstantMove(state, 1);
+    if (blockNow !== -1) return blockNow;
+
+    // Center heuristic on first move
+    if (state[13] === 0 && emptyIndices(state).length === 27) return 13;
+
+    let bestScore = -Infinity;
+    let bestMove  = -1;
+
+    const moves = orderedMoves(state);
+
+    for (const idx of moves) {
+        state[idx] = 2;
+        const score = minimax(state, maxDepth - 1, -Infinity, Infinity, false);
+        state[idx] = 0;
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove  = idx;
         }
+    }
+    return bestMove !== -1 ? bestMove : (emptyIndices(state)[0] ?? -1);
+}
+
+/**
+ * Recursive minimax with α/β pruning.
+ * Maximising player = Bot (2), minimising player = Human (1).
+ */
+function minimax(state, depth, alpha, beta, isMaximising) {
+    // Terminal checks
+    if (checkWin(state, 2)) return  1000 + depth;   // Bot wins – faster wins score higher
+    if (checkWin(state, 1)) return -1000 - depth;   // Human wins – faster losses score lower
+    const empty = emptyIndices(state);
+    if (empty.length === 0 || depth === 0) return evaluate(state);
+
+    if (isMaximising) {
+        let best = -Infinity;
+        for (const idx of orderedMoves(state)) {
+            state[idx] = 2;
+            best = Math.max(best, minimax(state, depth - 1, alpha, beta, false));
+            state[idx] = 0;
+            alpha = Math.max(alpha, best);
+            if (beta <= alpha) break; // β cut-off
+        }
+        return best;
+    } else {
+        let best = Infinity;
+        for (const idx of orderedMoves(state)) {
+            state[idx] = 1;
+            best = Math.min(best, minimax(state, depth - 1, alpha, beta, true));
+            state[idx] = 0;
+            beta = Math.min(beta, best);
+            if (beta <= alpha) break; // α cut-off
+        }
+        return best;
+    }
+}
+
+/**
+ * Heuristic evaluation for non-terminal states.
+ * Counts lines with only-Bot cells vs only-Human cells.
+ */
+function evaluate(state) {
+    let score = 0;
+    for (const line of winningLines) {
+        const vals = line.map(i => state[i]);
+        const botCount   = vals.filter(v => v === 2).length;
+        const humanCount = vals.filter(v => v === 1).length;
+
+        if (botCount > 0 && humanCount === 0) {
+            score += botCount === 2 ? 10 : 1;
+        } else if (humanCount > 0 && botCount === 0) {
+            score -= humanCount === 2 ? 10 : 1;
+        }
+    }
+    // Center bonus
+    if (state[13] === 2) score += 5;
+    if (state[13] === 1) score -= 5;
+    return score;
+}
+
+/**
+ * Move ordering: prefer moves that complete/block a line, then center, then edges.
+ */
+function orderedMoves(state) {
+    const empty = emptyIndices(state);
+
+    // Score each candidate move for ordering
+    return empty.slice().sort((a, b) => movePriority(state, b) - movePriority(state, a));
+}
+
+function movePriority(state, idx) {
+    let p = 0;
+    if (idx === 13) p += 8; // center
+
+    for (const line of winningLines) {
+        if (!line.includes(idx)) continue;
+        const vals = line.map(i => state[i]);
+        const botCount   = vals.filter(v => v === 2).length;
+        const humanCount = vals.filter(v => v === 1).length;
+        const empty      = vals.filter(v => v === 0).length;
+
+        if (empty >= 1) {
+            if (botCount === 2) p += 20; // can win
+            if (humanCount === 2) p += 18; // must block
+            if (botCount === 1) p += 2;
+            if (humanCount === 1) p += 1;
+        }
+    }
+    return p;
+}
+
+// ─────────────────────────────────────────────
+//  Helpers
+// ─────────────────────────────────────────────
+function emptyIndices(state) {
+    return state.reduce((acc, v, i) => { if (v === 0) acc.push(i); return acc; }, []);
+}
+
+function findInstantMove(state, player) {
+    for (let i = 0; i < state.length; i++) {
+        if (state[i] !== 0) continue;
+        state[i] = player;
+        const wins = checkWin(state, player);
+        state[i] = 0;
+        if (wins) return i;
     }
     return -1;
 }
@@ -220,21 +348,39 @@ function checkWin(state, player) {
     );
 }
 
+function getWinningLine(state, player) {
+    return winningLines.find(line =>
+        state[line[0]] === player &&
+        state[line[1]] === player &&
+        state[line[2]] === player
+    ) || null;
+}
+
+// ─────────────────────────────────────────────
+//  Difficulty selector (called from HTML)
+// ─────────────────────────────────────────────
+function setDifficulty(val) {
+    difficulty = val;
+    resetGame();
+}
+
 // ─────────────────────────────────────────────
 //  Reset / resize / animation loop
 // ─────────────────────────────────────────────
 function resetGame() {
     boardState.fill(0);
-    gameOver = false;
+    gameOver      = false;
     isBotThinking = false;
     currentPlayer = 1;
 
-    turnDisplay.innerText = "Your Turn (Red)";
-    turnDisplay.style.color = "white";
-    statusDisplay.innerText = "Click a sphere. Drag to rotate grid.";
+    turnDisplay.innerText   = 'Your Turn (Red)';
+    turnDisplay.style.color = 'white';
+    statusDisplay.innerText = 'Click a sphere. Drag to rotate grid.';
 
     gridSlots.forEach(mesh => {
         mesh.material.color.setHex(EMPTY_COLOR);
+        mesh.material.emissive = new THREE.Color(0x000000);
+        mesh.material.emissiveIntensity = 0;
         mesh.material.opacity = 0.25;
         mesh.scale.set(1, 1, 1);
     });
@@ -251,10 +397,10 @@ function animate() {
     controls.update();
 
     gridSlots.forEach(mesh => {
-        if (mesh.scale.x > 1) {
-            mesh.scale.x -= 0.02;
-            mesh.scale.y -= 0.02;
-            mesh.scale.z -= 0.02;
+        if (mesh.scale.x > 1.05) {
+            mesh.scale.x = Math.max(1, mesh.scale.x - 0.025);
+            mesh.scale.y = mesh.scale.x;
+            mesh.scale.z = mesh.scale.x;
         }
     });
 
