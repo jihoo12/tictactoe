@@ -100,6 +100,7 @@ function init() {
     const mouse     = new THREE.Vector2();
 
     window.addEventListener('pointerdown', (e) => {
+        if (difficulty === '4d') return;
         if (gameOver || currentPlayer === 2 || isBotThinking) return;
         if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return;
 
