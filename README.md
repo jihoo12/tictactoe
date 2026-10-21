@@ -41,7 +41,7 @@ This project is designed as a single, self-contained HTML file leveraging extern
 *   Basic understanding of JavaScript and DOM manipulation.
 
 ### How to Run Locally:
-1.  Ensure you have all four files (`index.html`, `style.css`, `script.js`, `rift.js`) in the same directory. `rift.js` is required for Nightmare mode.
+1.  Ensure you have all five files (`index.html`, `style.css`, `script.js`, `rift.js`, `four-d.js`) in the same directory. `rift.js` is required for Nightmare mode.
 2.  Open `index.html` directly in your web browser.
 
 *(Note: Since external dependencies (Three.js) are included via CDNs, no local package installation or build steps are necessary.)*
@@ -98,4 +98,17 @@ Select **🌀 DIMENSION RIFT · Nightmare** from the difficulty menu for a new s
 **Rules:** You move first (red). The AI places blue, then the announced slice rotates. Three in a straight 3D line wins immediately after any placement or rotation. If both sides acquire winning lines in the same rotation, the result is a draw. A full board without a winner also draws.
 
 **Implementation:** `rift.js` extends the existing game without modifying its classic AI. No build tools are required. Launch `index.html` with an internet connection to load Three.js from the existing CDNs.
+
+
+## 💠 HYPERCUBE — True 4D mode
+
+Choose **HYPERCUBE · 4D (81 cells)** from the mode selector.
+
+- **Real four-dimensional coordinates:** Every cell has an `(x,y,z,w)` coordinate in `{0,1,2}^4` — **81 playable cells**.
+- **Three 3D slices:** The three separated cubes represent `w=0`, `w=1`, and `w=2`. Within each cube, positions encode X, Y, and Z.
+- **True 4D wins:** All straight 3-cell lines in 4D count, including diagonals that vary on the W axis alongside other dimensions. Generated algorithmically by primitive direction vectors with components -1, 0, or +1.
+- **4D opponent:** The computer looks for immediate wins and blocks, scores multi-line forks, and estimates strong human replies. It is a heuristic AI and does not guarantee unbeatable play.
+- **How to play:** Rotate your camera by dragging and click an unoccupied sphere. The red player goes first. Win by placing three along any valid 4D line.
+
+The 4D view and game state are isolated from the original 3D and Rift modes. The page requires `four-d.js` alongside the other source files.
 
