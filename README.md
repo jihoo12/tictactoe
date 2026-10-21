@@ -41,7 +41,7 @@ This project is designed as a single, self-contained HTML file leveraging extern
 *   Basic understanding of JavaScript and DOM manipulation.
 
 ### How to Run Locally:
-1.  Ensure you have the three files (`index.html`, `style.css`, `script.js`) in the same directory.
+1.  Ensure you have all four files (`index.html`, `style.css`, `script.js`, `rift.js`) in the same directory. `rift.js` is required for Nightmare mode.
 2.  Open `index.html` directly in your web browser.
 
 *(Note: Since external dependencies (Three.js) are included via CDNs, no local package installation or build steps are necessary.)*
@@ -92,7 +92,7 @@ Select **🌀 DIMENSION RIFT · Nightmare** from the difficulty menu for a new s
 - **Rotating layers:** After each pair of turns (human, then AI), one 3×3 slice of the cube rotates 90° and carries its occupied cells along with it.
 - **Predictable sequence:** The purple HUD forecasts the next axis and slice. The rotation sequence repeats every six shifts, allowing deliberate planning rather than relying on luck.
 - **New win opportunities:** A rotation may complete a previously broken line, or disrupt what looked like a safe defense. The game checks wins after both placements and shifts.
-- **Rotation-aware AI:** The bot uses a bounded alpha-beta search that simulates upcoming shifts. This is a challenging heuristic opponent, not a claim of perfect play.
+- **Rotation-aware AI:** The bot uses tactical threat detection, rotation-aware move ordering, and a bounded alpha-beta search that simulates upcoming shifts. This is a challenging heuristic opponent, not a claim of perfect play.
 - **Separate mode:** Easy, Medium, and Hard retain their original rules.
 
 **Rules:** You move first (red). The AI places blue, then the announced slice rotates. Three in a straight 3D line wins immediately after any placement or rotation. If both sides acquire winning lines in the same rotation, the result is a draw. A full board without a winner also draws.
