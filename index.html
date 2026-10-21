@@ -28,5 +28,18 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="script.js"></script>
     <script src="rift.js"></script>
+    <script>
+      window.addEventListener("load", () => {
+        if (typeof window.riftReady === "undefined") {
+          const choice = document.querySelector('#difficulty-select option[value="rift"]');
+          if (choice) choice.disabled = true;
+          document.getElementById("status-display").textContent = "Rift unavailable: rift.js failed to load.";
+          const select = document.getElementById("difficulty-select");
+          select.addEventListener("change", () => {
+            if (select.value === "rift") { select.value = "hard"; setDifficulty("hard"); }
+          });
+        }
+      });
+    </script>
 </body>
 </html>
