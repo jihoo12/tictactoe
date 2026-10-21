@@ -85,3 +85,17 @@ A victory is achieved by aligning three spheres along any of the following axes 
 2.  **Space Diagonals:** Lines connecting corners across the volume of the cube (e.g., top-front-left corner to bottom-back-right corner).
 
 ***Good luck! Try to achieve a victory against the 'Hard' AI opponent.***
+## 🌀 DIMENSION RIFT — Nightmare Mode
+
+Select **🌀 DIMENSION RIFT · Nightmare** from the difficulty menu for a new spatial-strategy challenge.
+
+- **Rotating layers:** After each pair of turns (human, then AI), one 3×3 slice of the cube rotates 90° and carries its occupied cells along with it.
+- **Predictable sequence:** The purple HUD forecasts the next axis and slice. The rotation sequence repeats every six shifts, allowing deliberate planning rather than relying on luck.
+- **New win opportunities:** A rotation may complete a previously broken line, or disrupt what looked like a safe defense. The game checks wins after both placements and shifts.
+- **Rotation-aware AI:** The bot uses a bounded alpha-beta search that simulates upcoming shifts. This is a challenging heuristic opponent, not a claim of perfect play.
+- **Separate mode:** Easy, Medium, and Hard retain their original rules.
+
+**Rules:** You move first (red). The AI places blue, then the announced slice rotates. Three in a straight 3D line wins immediately after any placement or rotation. If both sides acquire winning lines in the same rotation, the result is a draw. A full board without a winner also draws.
+
+**Implementation:** `rift.js` extends the existing game without modifying its classic AI. No build tools are required. Launch `index.html` with an internet connection to load Three.js from the existing CDNs.
+

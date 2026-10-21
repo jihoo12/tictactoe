@@ -84,3 +84,31 @@ body {
 #reset-btn:hover {
     background: #ff453a;
 }
+/* Dimension Rift forecast */
+#rift-hint {
+    position: absolute;
+    top: 112px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(90vw, 520px);
+    box-sizing: border-box;
+    padding: 12px 16px;
+    background: rgba(40, 20, 78, .9);
+    color: #e4ccff;
+    border: 1px solid #a477ff;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    pointer-events: none;
+    box-shadow: 0 0 24px rgba(149, 88, 255, .3);
+}
+#rift-hint[hidden] { display: none; }
+#controls-panel { width: max-content; max-width: 95vw; }
+@media (max-width: 480px) {
+    #controls-panel { bottom: 12px; }
+    #difficulty-select { max-width: 60vw; font-size: 12px; }
+    #reset-btn { padding: 10px 12px; font-size: 12px; white-space: nowrap; }
+    #info-panel { min-width: 0; width: 80vw; }
+    #rift-hint { top: 118px; font-size: 12px; }
+}

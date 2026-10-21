@@ -12,12 +12,14 @@
         <div id="turn-display">Your Turn (Red)</div>
         <div id="status-display">Click a sphere. Drag to rotate grid.</div>
     </div>
+    <div id="rift-hint" hidden aria-live="polite"></div>
 
     <div id="controls-panel">
         <select id="difficulty-select" onchange="setDifficulty(this.value)">
             <option value="easy">🟢 Easy</option>
             <option value="medium">🟡 Medium</option>
             <option value="hard" selected>🔴 Hard</option>
+            <option value="rift">🌀 DIMENSION RIFT · Nightmare</option>
         </select>
         <button id="reset-btn" onclick="resetGame()">Reset Game</button>
     </div>
@@ -25,5 +27,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="script.js"></script>
+    <script src="rift.js"></script>
 </body>
 </html>
