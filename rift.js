@@ -113,47 +113,97 @@
         if (state[13] === 1) total -= 9;
         return total;
     }
-    function rankedMoves(state, player, limit) {
-        const available=emptyIndices(state);
-        const evaluated=available.map(i => {
-            state[i]=player;
-            const winning=checkWin(state,player);
-            const val=score(state);
-            state[i]=0;
-            return {i, value: winning ? (player===2 ? 100000 : -100000) : val};
-        });
-        evaluated.sort((a,b) => player===2 ? b.value-a.value : a.value-b.value);
-        return evaluated.slice(0,limit).map(e=>e.i);
+    // All forcing moves survive beam pruning, including wins created by a rotation.
+    function immediateWins(state, player, phase) {
+        const wins = [];
+        for (const i of emptyIndices(state)) {
+            const next = state.slice(); next[i] = player;
+            if (checkWin(next, player)) { wins.push(i); continue; }
+            if (player === 2) {
+                const end = outcome(next);
+                if (!end.ended && outcome(rotate(next,sequence[phase % sequence.length])).winner === 2)
+                    wins.push(i);
+            }
+        }
+        return wins;
     }
-    // Alpha-beta search explicitly simulates a layer rotation after each bot move.
+    function tacticalMoves(state, player, phase, limit) {
+        const wins = immediateWins(state,player,phase);
+        if (wins.length) return wins;
+        const opponent = player===1 ? 2 : 1;
+        // A human's immediate wins must be blocked; likewise protect against
+        // the bot winning on its next placement/rotation.
+        const threats = new Set(immediateWins(state,opponent,phase));
+        const moves = emptyIndices(state).map(i => {
+            const next=state.slice(); next[i]=player;
+            const after = player===2 && !outcome(next).ended ?
+                rotate(next,sequence[phase % sequence.length]) : next;
+            let value = score(after);
+            if (player===2) {
+                const responseWins=immediateWins(after,1,phase+1);
+                value -= responseWins.length ? 12000 + responseWins.length*400 : 0;
+                value += immediateWins(after,2,phase+1).length*800;
+            } else {
+                value += immediateWins(after,2,phase).length*12000;
+            }
+            return {i, value, forcing:threats.has(i)};
+        });
+        moves.sort((a,b) => {
+            if (a.forcing!==b.forcing) return a.forcing?-1:1;
+            return player===2 ? b.value-a.value : a.value-b.value;
+        });
+        // Preserve every forcing block even if it exceeds the normal beam width.
+        const chosen=moves.slice(0,limit);
+        for (const m of moves.slice(limit)) if (m.forcing) chosen.push(m);
+        return chosen.map(m=>m.i);
+    }
+    const cache = new Map();
+    let explored = 0;
+    const MAX_NODES = 55000;
     function search(state, depth, player, alpha, beta, phase) {
+        explored++;
         const end=outcome(state);
-        if (end.ended) return end.winner===2 ? 100000+depth*1000 :
-            end.winner===1 ? -100000-depth*1000 : 0;
-        if (depth===0) return score(state);
+        if (end.ended) return end.winner===2 ? 1000000+depth*10000 :
+            end.winner===1 ? -1000000-depth*10000 : 0;
+        const forcing=immediateWins(state,player,phase);
+        if (forcing.length) return player===2 ? 1000000+depth*10000 :
+            -1000000-depth*10000;
+        if (depth===0 || explored>=MAX_NODES) {
+            // Avoid evaluating a position as safe if the next player can win at once.
+            return score(state);
+        }
+        const key=state.join('')+'|'+depth+'|'+player+'|'+(phase%sequence.length);
+        if (cache.has(key)) return cache.get(key);
         const maximizing=player===2;
         let best=maximizing ? -Infinity : Infinity;
-        const moves=rankedMoves(state,player,depth>=3 ? 12 : 16);
+        const moves=tacticalMoves(state,player,phase,depth>=3?9:12);
+        let cut=false;
         for (const i of moves) {
             const next=state.slice(); next[i]=player;
             const after=player===2 && !outcome(next).ended ? rotate(next,sequence[phase % sequence.length]) : next;
-            const nextPhase=phase+(player===2 ? 1 : 0);
-            const value=search(after,depth-1,player===2?1:2,alpha,beta,nextPhase);
+            const value=search(after,depth-1,player===2?1:2,alpha,beta,phase+(player===2?1:0));
             best=maximizing ? Math.max(best,value) : Math.min(best,value);
             if (maximizing) alpha=Math.max(alpha,best); else beta=Math.min(beta,best);
-            if (beta<=alpha) break;
+            if (beta<=alpha) { cut=true; break; }
         }
+        // Alpha/beta cutoff results are bounds, not exact transposition values.
+        if (!cut && explored<MAX_NODES) cache.set(key,best);
         return best;
     }
     function chooseRiftMove(state) {
         const moves=emptyIndices(state);
         if (!moves.length) return -1;
-        let best=-Infinity, bestIndex=moves[0];
-        // Every legal root move is searched. Opponent responses are width-limited.
-        for (const i of moves) {
+        const instant=immediateWins(state,2,shiftCount);
+        if (instant.length) return instant[0];
+        // Full-width at the root; deeper search uses tactical move ordering.
+        // A stable tie-break prefers stronger positions over arbitrary first indices.
+        const ordered=tacticalMoves(state,2,shiftCount,27);
+        let best=-Infinity,bestIndex=ordered[0];
+        cache.clear(); explored=0;
+        for (const i of ordered) {
             const next=state.slice(); next[i]=2;
             const transformed=outcome(next).ended ? next : rotate(next,nextShift());
-            const val=search(transformed,3,1,-Infinity,Infinity,shiftCount+1);
+            const val=search(transformed,4,1,-Infinity,Infinity,shiftCount+1);
             if (val>best) { best=val; bestIndex=i; }
         }
         return bestIndex;
