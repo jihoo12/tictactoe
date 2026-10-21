@@ -172,15 +172,14 @@
     previousDifficulty(value);show();
     if(value==='4d')restart();
   };
-  // Capture phase prevents classic 3D click handler firing in 4D.
-  window.addEventListener('pointerdown',e=>{
-    if(!active()||e.target!==renderer.domElement)return;
-    e.stopImmediatePropagation();
-    if(finished||turn!==1||isBotThinking)return;
+  // Let OrbitControls receive pointerdown/move/up uninterrupted.
+  // A click event only fires for an actual tap/click, not a camera drag.
+  renderer.domElement.addEventListener('click',e=>{
+    if(!active()||finished||turn!==1||isBotThinking)return;
     point.set(e.clientX/window.innerWidth*2-1,-e.clientY/window.innerHeight*2+1);
     ray.setFromCamera(point,camera);
     const hits=ray.intersectObjects(spheres);
     if(hits.length)place(hits[0].object.userData.index4d,1);
-  },true);
+  });
   window.hypercubeReady=true;
 })();
