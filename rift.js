@@ -235,5 +235,6 @@
         classicSetDifficulty(value);
         showHint();
     };
+    window.riftReady = true;
     showHint();
 })();
